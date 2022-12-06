@@ -11,22 +11,37 @@ fn read_input(filename: &str) -> Result<Vec<String>, Error> {
 
 fn get_first_marker_index(inp: &Vec<String>, num_distinct: usize) -> Vec<usize> {
     let mut res = vec![];
+    let get_ones = |val: &[u8]| -> usize {
+        let mut accum: usize = 0;
+        for c in val.iter() {
+            accum ^= (1 << (*c - 97u8)) as usize;
+        }
+        accum.count_ones() as usize
+    };
+
     for ex in inp.iter() {
         for (i, val) in ex.as_bytes().windows(num_distinct).enumerate() {
-            let mut bitmap = vec![false; 26];
-            for c in val.iter() {
-                bitmap[(c - 97u8) as usize] = true;
-            }
-            let count = bitmap.iter().filter(|v| **v).count();
-            if count == num_distinct {
-                res.push(i + num_distinct);
-                break;
-            }
+            // Slowest -> Hash the slice and compare lengths - 1ms in release
             //let set: HashSet<u8> = val.iter().cloned().collect();
             //if set.len() == num_distinct {
             //    res.push(i + num_distinct);
             //    break;
             //}
+
+            // Use Bitmap -> compare number of true values with num_distinct -> 500us in release
+            //let mut bitmap = vec![false; 26];
+            //let count = bitmap.iter().filter(|v| **v).count();
+            //if count == num_distinct {
+            //    res.push(i + num_distinct);
+            //    break;
+            //}
+
+            // Idea from /r/adventofcode -> Use XoR -> 100us in release
+            if get_ones(&val) == num_distinct {
+                res.push(i + num_distinct);
+                break;
+            }
+
         }
     }
     res
