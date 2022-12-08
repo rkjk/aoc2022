@@ -16,14 +16,16 @@ fn parse_input(inp: Vec<String>) -> Vec<Vec<Tree>> {
 #[derive(Debug, Clone)]
 struct Tree {
     pub height: u8,
-    pub visible: HashMap<Direction, bool>
+    pub visible: HashMap<Direction, bool>,
+    pub scenic_distances: Vec<usize>,
 }
 
 impl Tree {
     pub fn new(height: u8) -> Self {
         Tree {
             height: height,
-            visible: HashMap::new()
+            visible: HashMap::new(),
+            scenic_distances: Vec::new(),
         }
     }
 
@@ -33,6 +35,24 @@ impl Tree {
 
     pub fn is_visible(&self) -> bool {
         self.visible.values().any(|&x| x)
+    }
+
+    pub fn get_distance(&self) -> usize {
+        if self.scenic_distances.len() < 4 {
+            return 0;
+        }
+        if self.scenic_distances.len() > 4 {
+            panic!("Should not be greater than 4");
+        }
+        let mut val = 1;
+        for v in self.scenic_distances.iter() {
+            val *= v;
+        }
+        val
+    }
+
+    pub fn add_distance(&mut self, dist: usize) {
+        self.scenic_distances.push(dist);
     }
 }
 
@@ -48,6 +68,11 @@ fn process_direction(forest: &mut Vec<Vec<Tree>>, direction: Direction) {
     let end_idx = match direction {
         Direction::Left | Direction::Right => forest[0].len(),
         Direction::Bottom | Direction::Top => forest.len()
+    };
+    let start_idx = match direction {
+        Direction::Left | Direction::Top => 0,
+        Direction::Bottom => forest.len(),
+        Direction::Right => forest[0].len()
     };
     let range = match direction {
         Direction::Left | Direction::Top => (0..end_idx).collect::<Vec<usize>>(),
@@ -77,6 +102,42 @@ fn process_direction(forest: &mut Vec<Vec<Tree>>, direction: Direction) {
                 forest[left_ind][right_ind].mark_visibility(direction, true);
             }
             //println!("Left Ind: {}, Right Ind: {}, cur_max: {:?}, tree: {:?}", left_ind, right_ind, cur_max, forest[left_ind][right_ind]);
+            let mut val = 0;
+            match direction {
+                Direction::Left => {
+                    for i in (0..*ind).rev() {
+                        val += 1;
+                        if forest[*it][i].height >= height {
+                            break;
+                        }
+                    }
+                },
+                Direction::Right => {
+                    for i in *ind+1..forest[0].len() {
+                        val += 1;
+                        if forest[*it][i].height >= height {
+                            break;
+                        }
+                    }
+                },
+                Direction::Top => {
+                    for j in (0..*ind).rev() {
+                        val += 1;
+                        if forest[j][*it].height >= height {
+                            break;
+                        }
+                    }
+                },
+                Direction::Bottom => {
+                    for j in *ind+1..forest.len() {
+                        val += 1;
+                        if forest[j][*it].height >= height {
+                            break;
+                        }
+                    }
+                }
+            };
+            forest[left_ind][right_ind].add_distance(val);
         }
     }
 }
@@ -96,14 +157,22 @@ mod tests {
         let mut input = parse_input(read_input("in.test").unwrap());
         generate_visibility(&mut input);
         let part1 = input.iter().cloned().into_iter().flatten().filter(|tree| tree.is_visible()).count();
-        println!("Test 1: {:?}", part1);
+        let part2 = input.into_iter().flatten().map(|tree| tree.get_distance()).max().unwrap();
+        println!("Test 1: {}", part1);
+        println!("Test 2: {}", part2);
     }
 
     #[test]
     fn actuak() {
+        use std::time::Instant;
+        let now = Instant::now();
         let mut input = parse_input(read_input("in.1").unwrap());
         generate_visibility(&mut input);
         let part1 = input.iter().cloned().into_iter().flatten().filter(|tree| tree.is_visible()).count();
+        let part2 = input.into_iter().flatten().map(|tree| tree.get_distance()).max().unwrap();
+        let elapsed = now.elapsed();
         println!("Part 1: {:?}", part1);
+        println!("Part 2: {}", part2);
+        println!("Elapsed: {:.2?}", elapsed);
     }
 }
