@@ -44,20 +44,18 @@ struct Folder {
     files: Vec<AFile>,
     children: HashMap<String, Rc<RefCell<Folder>>>,
     parent: Weak<RefCell<Folder>>,
-    me: Weak<RefCell<Folder>>,
     size: usize
 }
 
 impl Folder {
     pub fn new(name: &str, parent: Weak<RefCell<Folder>>) -> Rc<RefCell<Self>> {
-        Rc::new_cyclic(|me|
+        Rc::new(
             RefCell::new(
                 Folder {
                     name: name.to_string(),
                     files: vec![],
                     children: HashMap::new(),
                     parent: parent.clone(),
-                    me: me.clone(),
                     size: 0
                 }
             )
@@ -68,11 +66,11 @@ impl Folder {
         self.files.push(AFile::new(name, size));
     }
 
-    pub fn add_directory(&mut self, name: &str) {
+    pub fn add_directory(&mut self, name: &str, parent: Weak<RefCell<Folder>>) {
         if self.children.contains_key(name) {
             return;
         }
-        self.children.insert(name.to_string(), Folder::new(name, self.me.clone()));
+        self.children.insert(name.to_string(), Folder::new(name, parent));
     }
 
     pub fn get_parent(&self) -> Weak<RefCell<Folder>> {
@@ -146,7 +144,7 @@ impl Session {
                     cur_dir.as_ref().borrow_mut().add_file(line[1], line[0].parse::<usize>().unwrap());
                 } else {
                     let line: Vec<&str> = val.split(" ").collect();
-                    cur_dir.as_ref().borrow_mut().add_directory(line[1]);
+                    cur_dir.as_ref().borrow_mut().add_directory(line[1], Rc::downgrade(&cur_dir));
                 }
             } else {
                 let command_line: Vec<&str> = val.split(" ").collect();
@@ -159,7 +157,7 @@ impl Session {
                     cur_dir = next_dir;
                     continue;
                 }
-                cur_dir.as_ref().borrow_mut().add_directory(dir);
+                cur_dir.as_ref().borrow_mut().add_directory(dir, Rc::downgrade(&cur_dir));
                 let next_dir = cur_dir.as_ref().borrow().get_child(dir);
                 cur_dir = next_dir;
             }
