@@ -14,7 +14,11 @@ enum Direction {
     R,
     L,
     U,
-    D
+    D,
+    D45,
+    D135,
+    D225,
+    D315
 }
 
 type Instr = (Direction, i32);
@@ -143,60 +147,120 @@ impl Session {
                     self.h = h_n;
                     self.t = t_n;
                 },
+                _ => (),
             };
         }
     }
 
     // Return the Direction that if applied to tail, 
     //will make the tail move to its final position
-    pub fn move_one_step(&mut self, dir: Direction) {
+    pub fn move_one_step(&mut self, dir: Direction) -> Option<Direction> {
         let (h, t) = (self.h, self.t);
-        match dir {
+        let direction = match dir {
             Direction::R => {
                 let h_n = Pos::new(h.i + 1, h.j);
                 if h.i == t.i || h.i == t.i - 1 {
                     self.h = h_n;
-                    return;
+                    return None;
                 }
-                let t_n = Pos::new(h.i, h.j);
-                self.seen_pos.insert(t_n);
-                self.h = h_n;
-                self.t = t_n;
+                return self.helper(h_n);
             },
             Direction::L => {
                 let h_n = Pos::new(h.i - 1, h.j);
                 if h.i == t.i || h.i == t.i + 1 {
                     self.h = h_n;
-                    return;
+                    return None;
                 }
-                let t_n = Pos::new(h.i, h.j);
-                self.seen_pos.insert(t_n);
-                self.h = h_n;
-                self.t = t_n;
+                return self.helper(h_n);
             },
             Direction::U => {
                 let h_n = Pos::new(h.i, h.j + 1);
                 if h.j == t.j - 1 || h.j == t.j {
                     self.h = h_n;
-                    return;
+                    return None;
                 }
-                let t_n = Pos::new(h.i, h.j);
-                self.seen_pos.insert(t_n);
-                self.h = h_n;
-                self.t = t_n;
+                return self.helper(h_n);
             },
             Direction::D => {
                 let h_n = Pos::new(h.i, h.j - 1);
                 if h.j == t.j + 1 || h.j == t.j {
                     self.h = h_n;
-                    return;
+                    return None;
                 }
-                let t_n = Pos::new(h.i, h.j);
-                self.seen_pos.insert(t_n);
-                self.h = h_n;
-                self.t = t_n;
+                return self.helper(h_n);
+            },
+            Direction::D45 => {
+                let h_n = Pos::new(h.i + 1, h.j + 1);
+                if h.i <= t.i && h.j <= t.j {
+                    self.h = h_n;
+                    return None;
+                }
+                return self.helper(h_n);
+            },
+            Direction::D135 => {
+                let h_n = Pos::new(h.i - 1, h.j + 1);
+                if h.i >= t.i && h.j <= t.j {
+                    self.h = h_n;
+                    return None;
+                }
+                return self.helper(h_n);
+            },
+            Direction::D225 => {
+                let h_n = Pos::new(h.i - 1, h.j - 1);
+                if h.i >= t.i && h.j >= t.j {
+                    self.h = h_n;
+                    return None;
+                }
+                return self.helper(h_n);
+            },
+            Direction::D315 => {
+                let h_n = Pos::new(h.i + 1, h.j - 1);
+                if h.i <= t.i && h.j >= t.j {
+                    self.h = h_n;
+                    return None;
+                }
+                return self.helper(h_n);
             }
+        };
+        direction
+    }
+
+    fn get_direction(old_t: Pos, new_t: Pos) -> Option<Direction> {
+        if new_t.i == old_t.i + 1 && new_t.j == old_t.j {
+            return Some(Direction::R);
         }
+        if new_t.i == old_t.i - 1 && new_t.j == old_t.j {
+            return Some(Direction::L);
+        }
+        if new_t.i == old_t.i && new_t.j == old_t.j + 1 {
+            return Some(Direction::U);
+        }
+        if new_t.i == old_t.i && new_t.j == old_t.j - 1 {
+            return Some(Direction::D);
+        }
+        if new_t.i == old_t.i + 1 && new_t.j == old_t.j + 1 {
+            return Some(Direction::D45);
+        }
+        if new_t.i == old_t.i - 1 && new_t.j == old_t.j + 1 {
+            return Some(Direction::D135);
+        }
+        if new_t.i == old_t.i - 1 && new_t.j == old_t.j - 1 {
+            return Some(Direction::D225);
+        }
+        if new_t.i == old_t.i + 1 && new_t.j == old_t.j - 1 {
+            return Some(Direction::D315);
+        } else {
+            panic!("Should not be here");
+        }
+    }
+
+    pub fn helper(&mut self, h_n: Pos) -> Option<Direction> {
+        let t_n = Pos::clone(&self.h);
+        let direction = Session::get_direction(self.t, t_n);
+        self.seen_pos.insert(t_n);
+        self.h = h_n;
+        self.t = t_n;
+        return direction;
     }
 
     pub fn process_multiple(&mut self, instructions: &Vec<Instr>) {
