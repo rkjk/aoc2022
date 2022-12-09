@@ -147,6 +147,68 @@ impl Session {
         }
     }
 
+    // Return the Direction that if applied to tail, 
+    //will make the tail move to its final position
+    pub fn move_one_step(&mut self, dir: Direction) {
+        let (h, t) = (self.h, self.t);
+        match dir {
+            Direction::R => {
+                let h_n = Pos::new(h.i + 1, h.j);
+                if h.i == t.i || h.i == t.i - 1 {
+                    self.h = h_n;
+                    return;
+                }
+                let t_n = Pos::new(h.i, h.j);
+                self.seen_pos.insert(t_n);
+                self.h = h_n;
+                self.t = t_n;
+            },
+            Direction::L => {
+                let h_n = Pos::new(h.i - 1, h.j);
+                if h.i == t.i || h.i == t.i + 1 {
+                    self.h = h_n;
+                    return;
+                }
+                let t_n = Pos::new(h.i, h.j);
+                self.seen_pos.insert(t_n);
+                self.h = h_n;
+                self.t = t_n;
+            },
+            Direction::U => {
+                let h_n = Pos::new(h.i, h.j + 1);
+                if h.j == t.j - 1 || h.j == t.j {
+                    self.h = h_n;
+                    return;
+                }
+                let t_n = Pos::new(h.i, h.j);
+                self.seen_pos.insert(t_n);
+                self.h = h_n;
+                self.t = t_n;
+            },
+            Direction::D => {
+                let h_n = Pos::new(h.i, h.j - 1);
+                if h.j == t.j + 1 || h.j == t.j {
+                    self.h = h_n;
+                    return;
+                }
+                let t_n = Pos::new(h.i, h.j);
+                self.seen_pos.insert(t_n);
+                self.h = h_n;
+                self.t = t_n;
+            }
+        }
+    }
+
+    pub fn process_multiple(&mut self, instructions: &Vec<Instr>) {
+        self.seen_pos.insert(self.h);
+        for instr in instructions {
+            let (dir, magn) = (instr.0, instr.1);
+            for i in 0..magn {
+                self.move_one_step(dir);
+            }
+        }
+    }
+
     pub fn seen_count(&self) -> usize {
         self.seen_pos.len()
     }
@@ -157,6 +219,24 @@ impl Session {
     }
 }
 
+/*
+struct TenKnots {
+    sessions: Vec<Session>
+}
+
+impl TenKnots {
+    pub fn new() -> Self {
+        TenKnots {
+            sessions: vec![Session::new(); 9]
+        }
+    }
+
+    pub fn run_through(&mut self) {
+
+    }
+}
+*/
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,7 +245,8 @@ mod tests {
     fn it_works() {
         let inp = parse_input(read_input("in.test").unwrap());
         let mut session = Session::new();
-        session.run_through(&inp);
+        //session.run_through(&inp);
+        session.process_multiple(&inp);
         let part1 = session.seen_count();
         //session.print();
         println!("Test 1: {}", part1);
@@ -175,7 +256,8 @@ mod tests {
     fn actual() {
         let inp = parse_input(read_input("in.1").unwrap());
         let mut session = Session::new();
-        session.run_through(&inp);
+        //session.run_through(&inp);
+        session.process_multiple(&inp);
         let part1 = session.seen_count();
         //session.print();
         println!("Actual 1: {}", part1);
