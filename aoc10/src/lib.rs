@@ -1,7 +1,8 @@
 use std::io::{BufRead, BufReader, ErrorKind};
 use std::io::Error;
 use std::fs::File;
-use std::collections::HashMap;
+use std::io;
+use std::io::Write;
 
 fn read_input(filename: &str) -> Result<Vec<String>, Error> {
     let f = File::open(filename).unwrap();
@@ -47,7 +48,7 @@ fn parse_input(inp: Vec<String>) -> Vec<Op> {
     inp.into_iter().map(|val| Op::new(val)).collect()
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct State {
     cycle_number: usize,
     x: i32
@@ -76,14 +77,17 @@ impl State {
 
 struct Session {
     states: Vec<State>,
-    x: i32
+    x: i32,
+    crt: Vec<Vec<bool>>,
 }
 
 impl Session {
     pub fn new() -> Self {
+
         Session {
             states: vec![State::new(0, 1)],
-            x: 1
+            x: 1,
+            crt: vec![vec![false; 40]; 6],
         }
     }
 
@@ -124,25 +128,83 @@ impl Session {
         }
         product
     }
+
+    fn get_part2(&mut self) {
+        let get_coords = |cycle_num: usize| -> (usize, usize) {
+            ((cycle_num - 1) / 40 as usize, ((cycle_num - 1) % 40) as usize)
+        };
+        let get_x_coords = |x: i32| -> i32 {
+            match x <= 0 {
+                true => x,
+                false => x % 40
+            }
+        };
+        self.crt[0][0] = true;
+        self.crt[0][1] = true;
+        let mut cur_cycle = self.states[1].get_cycle();
+        let mut cur_x = self.states[1].get_x();
+        let mut i = 0;
+        for state in self.states[1..].iter() {
+            let State {cycle_number: nex_cycle, x: nex_x} = state;
+            for cyc in cur_cycle+1..*nex_cycle+1 {
+                let (crt_row_num, crt_col_num) = get_coords(cyc);
+                let x_col_num = get_x_coords(cur_x);
+                for v in [x_col_num - 1, x_col_num, x_col_num + 1].into_iter() {
+                    if v < 0 {
+                        continue;
+                    }
+                    if crt_col_num == v as usize {
+                        self.crt[crt_row_num][crt_col_num] = true;
+                        break;
+                    }
+                }
+            }
+            cur_cycle = *nex_cycle;
+            cur_x = *nex_x;
+        }
+    }
+
+    pub fn print_crt(&self) {
+        for i in 0..6 {
+            for j in 0..40 {
+                match self.crt[i][j] {
+                    false => print!("."),
+                    true => print!("#"),
+                };
+                io::stdout().flush().unwrap();
+            }
+            println!("");
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
+    //#[test]
     fn it_works() {
         let inp = parse_input(read_input("in.test").unwrap());
         let mut session = Session::new();
         session.run_through(&inp);
+        //session.print_states();
         println!("test 1: {}", session.get_part1());
+        session.get_part2();
+        session.print_crt();
     }
 
     #[test]
     fn actual() {
+        use std::time::Instant;
+        let now = Instant::now();
         let inp = parse_input(read_input("in.1").unwrap());
         let mut session = Session::new();
         session.run_through(&inp);
+        //session.print_states();
+        session.get_part2();
+        let elapsed = now.elapsed();
         println!("Part 1: {}", session.get_part1());
+        session.print_crt();
+        println!("Elapsed: {:.2?}", elapsed);
     }
 }
