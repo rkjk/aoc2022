@@ -2,19 +2,27 @@ pub mod example;
 pub mod monkey;
 pub mod actual;
 
-use monkey::Monkey;
+use monkey::{Monkey, Item};
 
+/// Part 1 is straightforward implement as in the question.
+/// Part 2 is the Yearly Chinese Remainder Theorem question.
+/// Basically every monkey has a check to determine which monkey to throw to.
+/// This check is to see if divisible by a number. So, if we take the LCM of these numbers
+/// and take modulo of worry after applying the new  = fn(old) worry function. The result is unchanged.
+/// Not doing so would result in integer overflow 
 struct Session {
     monkeys: Vec<Monkey>,
-    counts: Vec<usize>
+    counts: Vec<usize>,
+    lcm: Item
 }
 
 impl Session {
-    pub fn new(monkeys: Vec<Monkey>) -> Self {
+    pub fn new(monkeys: Vec<Monkey>, lcm: Item) -> Self {
         let size = monkeys.len();
         Session {
             monkeys: monkeys,
-            counts: vec![0; size]
+            counts: vec![0; size],
+            lcm: lcm
         }
     }
 
@@ -31,7 +39,7 @@ impl Session {
                         let v = monkey_ref.items.pop_front().unwrap();
                         let worry = (monkey_ref.worry_fn)(v);
                         let worry = match should_worry {
-                            true => worry % 96577,
+                            true => worry % self.lcm,
                             false => worry / 3
                         };
                         let destination = (monkey_ref.test_fn)(worry);
@@ -73,27 +81,35 @@ impl Session {
 
 #[cfg(test)]
 mod tests {
+    use crate::example::LCM_OF_MODS;
+
     use super::*;
 
     #[test]
     fn it_works() {
         use example::*;
         let inp = get_example_monkeys();
-        let mut session = Session::new(inp);
+        let mut session = Session::new(inp, 0);
         let part1 = session.run_rounds(20, false);
-        let part2 = session.run_rounds(10000, true);
+        let mut session2 = Session::new(get_example_monkeys(), LCM_OF_MODS);
+        let part2 = session2.run_rounds(10000, true);
         println!("Test 1: {}", part1);
         println!("Test 2: {}", part2);
     }
 
-    //#[test]
+    #[test]
     fn actual() {
+        use std::time::Instant;
+        let now = Instant::now();
         use actual::*;
         let inp = get_actual_monkeys();
-        let mut session = Session::new(inp);
+        let mut session = Session::new(inp, 0);
         let part1 = session.run_rounds(20, false);
-        let part2 = session.run_rounds(10000, false);
+        let mut session2 = Session::new(get_actual_monkeys(), LCM_OF_MODS);
+        let part2 = session2.run_rounds(10000, true);
+        let elapsed = now.elapsed();
         println!("Part 1: {}", part1);
         println!("Part 2: {}", part2);
+        println!("Elapsed: {:.2?}", elapsed);
     }
 }

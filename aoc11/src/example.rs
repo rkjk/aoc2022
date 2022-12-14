@@ -2,6 +2,8 @@ use crate::monkey::{Monkey, Item};
 
 use std::collections::VecDeque;
 
+pub const LCM_OF_MODS: Item = 96577;
+
 pub fn get_example_monkeys() -> Vec<Monkey> {
     vec![
         Monkey::new(

@@ -2,6 +2,8 @@ use std::collections::VecDeque;
 
 pub type Item = u64;
 
+const LCM_OF_MODS: u64 = 9699690;
+
 pub struct Monkey {
     pub items: VecDeque<Item>,
     pub worry_fn: Box<dyn Fn(Item) -> Item>,
