@@ -2,6 +2,7 @@ use std::io::{BufRead, BufReader, ErrorKind};
 use std::io::Error;
 use std::fs::File;
 use std::collections::VecDeque;
+use std::cmp::min;
 
 fn read_input(filename: &str) -> Result<Vec<String>, Error> {
     let f = File::open(filename).unwrap();
@@ -47,10 +48,10 @@ impl<'a> Graph<'a> {
         }
     }
 
-    pub fn get_shortest_path(&self) -> usize {
+    pub fn get_shortest_path(&self, start: Pos) -> usize {
         let (m, n) = (self.topo.len(), self.topo[0].len());
         let mut shortest = vec![vec![usize::MAX; n]; m];
-        let mut queue = VecDeque::from([(*self.start, 0)]);
+        let mut queue = VecDeque::from([(start, 0)]);
         let get_next = |cur: Pos| -> Vec<Pos> {
             let mut res = Vec::new();
             if cur.0 > 0 {
@@ -86,6 +87,23 @@ impl<'a> Graph<'a> {
         }
         shortest[self.end.0][self.end.1]
     }
+
+    pub fn brute_force_part_2(&self) -> usize {
+        let mut min_dist = usize::MAX;
+        let mut start_points = vec![];
+        for (i, line) in self.topo.iter().enumerate() {
+            for (j, v) in line.iter().enumerate() {
+                match *v == 0 {
+                    true => start_points.push((i, j)),
+                    false => (),
+                }
+            }
+        }
+        for start in start_points {
+            min_dist = min(min_dist, self.get_shortest_path(start));
+        }
+        min_dist
+    }
 }
 
 #[cfg(test)]
@@ -96,15 +114,23 @@ mod tests {
     fn it_works() {
         let (start, end, inp) = parse_input(read_input("in.test").unwrap());
         let graph = Graph::new(&start, &end, &inp);
-        let part1 = graph.get_shortest_path();
+        let part1 = graph.get_shortest_path(start);
+        let part2 = graph.brute_force_part_2();
         println!("Test 1: {}", part1);
+        println!("Test 2: {}", part2);
     }
 
     #[test]
     fn actual() {
+        use std::time::Instant;
+        let now = Instant::now();
         let (start, end, inp) = parse_input(read_input("in.1").unwrap());
         let graph = Graph::new(&start, &end, &inp);
-        let part1 = graph.get_shortest_path();
+        let part1 = graph.get_shortest_path(start);
+        let part2 = graph.brute_force_part_2();
+        let elapsed = now.elapsed();
         println!("Part 1: {}", part1);
+        println!("Part 2: {}", part2);
+        println!("Elapsed: {:?}", elapsed);
     }
 }
