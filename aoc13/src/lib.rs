@@ -72,6 +72,10 @@ enum Node {
     List(ListNode),
 }
 
+impl Default for Node {
+    fn default() -> Self { Node::List(ListNode::new()) }
+}
+
 impl Node {
     pub fn compare(&self, other: &Node) -> Ordering {
         match (self, other) {
@@ -100,6 +104,8 @@ impl Node {
 }
 
 /// Return index of first comma (or end of string), where bracket count is <= 0
+/// bracket_count increases for every [ and decreases for every ].
+/// So this will effectively figure out the next node in the list of nodes
 fn find_index(slice: &str) -> usize {
     let mut bracket_count = 0;
     for (i, c) in slice.chars().enumerate() {
@@ -117,9 +123,9 @@ fn find_index(slice: &str) -> usize {
 }
 
 /// Invariant -> inp is a string slice that starts with '[' and ends with ']'
-/// So, split by comma -> if it is a number, just add a Number to cur_node
+/// So, the first value of this list is the slice upto first comma
+/// where the bracket_count is <= 0. 
 /// If it is a ListNode -> create a new ListNode, and recurse
-/// Since we split by comma, the new string slice will respect the invariant
 fn parse_packets(cur_node: &mut ListNode, inp: &str) {
     // If empty list, return early
     if inp.len() <= 2 {
@@ -188,6 +194,37 @@ impl Session {
         }
         res
     }
+    
+    fn get_dividers() -> Vec<Node> {
+        vec![
+            Node::List(ListNode::single(
+                Box::new(Node::List(ListNode::single(
+                    Box::new(Node::Number(2))))))), 
+            Node::List(ListNode::single(
+                Box::new(Node::List(ListNode::single(
+                    Box::new(Node::Number(6)))))))]
+    }
+
+    pub fn get_sorted_dividers_pos(&mut self) -> usize {
+        let mut flat_items: Vec<Node> = vec![];
+        for val in self.pairs.iter_mut() {
+            flat_items.push(take(&mut val.0));
+            flat_items.push(take(&mut val.1));
+        }
+        flat_items.append(&mut Session::get_dividers());
+        flat_items.sort_by(|val_a, val_b| val_a.compare(val_b));
+        let dividers_copy = Session::get_dividers();
+        let mut res = 1;
+        for (i, val) in flat_items.iter().enumerate() {
+            for div in dividers_copy.iter() {
+                match div.compare(val) {
+                    Ordering::Equal => res *= i + 1,
+                    _ => (),
+                }
+            }
+        }
+        res
+    }
 }
 
 #[cfg(test)]
@@ -197,16 +234,24 @@ mod tests {
     #[test]
     fn it_works() {
         let pairs = parse_input(read_input("in.test").unwrap());
-        let session = Session::new(pairs);
+        let mut session = Session::new(pairs);
         let part1 = session.sum_right_ordered_indices();
+        let part2 = session.get_sorted_dividers_pos();
         println!("Test 1: {}", part1);
+        println!("Test 2: {}", part2);
     }
 
     #[test]
     fn actual() {
+        use std::time::Instant;
+        let now = Instant::now();
         let pairs = parse_input(read_input("in.1").unwrap());
-        let session = Session::new(pairs);
+        let mut session = Session::new(pairs);
         let part1 = session.sum_right_ordered_indices();
+        let part2 = session.get_sorted_dividers_pos();
+        let elapsed = now.elapsed();
         println!("Part 1: {}", part1);
+        println!("Part 2: {}", part2);
+        println!("Elapsed: {:?}", elapsed);
     }
 }
