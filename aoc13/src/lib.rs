@@ -2,8 +2,8 @@ use std::io::{BufRead, BufReader, ErrorKind};
 use std::io::Error;
 use std::fs::File;
 use std::mem::take;
-use std::fmt::Formatter;
 use std::fmt::Debug;
+use std::cmp::Ordering;
 
 fn read_input(filename: &str) -> Result<Vec<String>, Error> {
     let f = File::open(filename).unwrap();
@@ -25,8 +25,44 @@ impl ListNode {
         }
     }
 
+    pub fn single(single_item: Box<Node>) -> Self {
+        ListNode {
+            items: vec![single_item]
+        }
+    }
+
     pub fn push(&mut self, node: Box<Node>) {
         self.items.push(node);
+    }
+
+    pub fn get(&self, index: usize) -> &Node {
+        self.items[index].as_ref()
+    }
+
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    pub fn compare(&self, node: &ListNode) -> Ordering {
+        let (mut i, mut j) = (0, 0);
+        loop {
+            if i == self.len() && j == node.len() {
+                break;
+            }
+            if i == self.len() {
+                return Ordering::Less;
+            }
+            if j == node.len() {
+                return Ordering::Greater;
+            }
+            let val = self.get(i).compare(node.get(j));
+            if val != Ordering::Equal {
+                return val;
+            }
+            i += 1;
+            j += 1;
+        }
+        Ordering::Equal
     }
 }
 
@@ -34,6 +70,33 @@ impl ListNode {
 enum Node {
     Number(u8),
     List(ListNode),
+}
+
+impl Node {
+    pub fn compare(&self, other: &Node) -> Ordering {
+        match (self, other) {
+            (Node::Number(u), Node::Number(v)) => {
+                if v == u {
+                    return Ordering::Equal
+                } else if u < v {
+                    return Ordering::Less
+                } else {
+                    return Ordering::Greater
+                }
+            },
+            (Node::List(u), Node::List(v)) => {
+                return u.compare(v);
+            },
+            (Node::List(u), Node::Number(v)) => {
+                let new_list = ListNode::single(Box::new(Node::Number(*v)));
+                return u.compare(&new_list);
+            },
+            (Node::Number(u), Node::List(v)) => {
+                let new_list = ListNode::single(Box::new(Node::Number(*u)));
+                return new_list.compare(v);
+            }
+        }
+    }
 }
 
 /// Return index of first comma (or end of string), where bracket count is <= 0
@@ -111,12 +174,19 @@ impl Session {
         }
     }
 
-    pub fn print_pairs(&self) {
+    pub fn sum_right_ordered_indices(&self) -> usize {
+        let mut res = 0;
         for i in 0..self.pairs.len() {
-            println!("Index: {}, LHS: {:?}", i, self.pairs[i].0);
-            println!("Index: {}, RHS: {:?}", i, self.pairs[i].1);
-            println!();
+            //println!("Pair: {}, LHS: {:?}", i, self.pairs[i].0);
+            //println!("Pair: {}, RHS: {:?}", i, self.pairs[i].1);
+            match self.pairs[i].0.compare(&self.pairs[i].1) {
+                Ordering::Less => res += i + 1,
+                _ => (),
+            } 
+            //println!("Pair: {}, Comparison: {:?}", i + 1, self.pairs[i].0.compare(&self.pairs[i].1));
+            //println!("");
         }
+        res
     }
 }
 
@@ -128,6 +198,15 @@ mod tests {
     fn it_works() {
         let pairs = parse_input(read_input("in.test").unwrap());
         let session = Session::new(pairs);
-        session.print_pairs();
+        let part1 = session.sum_right_ordered_indices();
+        println!("Test 1: {}", part1);
+    }
+
+    #[test]
+    fn actual() {
+        let pairs = parse_input(read_input("in.1").unwrap());
+        let session = Session::new(pairs);
+        let part1 = session.sum_right_ordered_indices();
+        println!("Part 1: {}", part1);
     }
 }
