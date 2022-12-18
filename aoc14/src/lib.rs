@@ -104,12 +104,52 @@ impl Session {
         }
     }
 
-    pub fn drop_sand_until_abyss(&mut self) -> usize {
-        let mut iterations = 0;
+    fn simulate_drop_2(&mut self) -> State {
+        let mut cur_pos = self.start;
+        let mut i = 0;
         loop {
-            match self.simulate_drop() {
-                State::Drop => iterations += 1,
-                State::Stop => break,
+            i += 1;
+            //println!("Iter {}, pos: {:?}", i, cur_pos);
+            match self.get_next_pos(&cur_pos) {
+                Some(v) => {
+                    if v.1 == self.max_y + 2 {
+                        self.sand.insert(cur_pos);
+                        //println!("Drop_here: {:?}", cur_pos);
+                        return State::Drop;
+                    }
+                    cur_pos = v;
+                },
+                None => {
+                    self.sand.insert(cur_pos);
+                    if cur_pos == (500, 0) {
+                        return State::Stop;
+                    }
+                    //println!("Drop now: {:?}", cur_pos);
+                    return State::Drop;
+                }
+            }
+        }
+    }
+
+
+    pub fn drop_sand_until_abyss(&mut self, part2: bool) -> usize {
+        let mut iterations = 0;
+        match part2 {
+            true => {
+                loop {
+                    match self.simulate_drop_2() {
+                        State::Drop => iterations += 1,
+                        State::Stop => break,
+                    }
+                }
+            },
+            false => {
+                loop {
+                    match self.simulate_drop() {
+                        State::Drop => iterations += 1,
+                        State::Stop => break,
+                    }
+                } 
             }
         }
         iterations
@@ -123,16 +163,26 @@ mod tests {
     #[test]
     fn it_works() {
         let (inp, max_y) = parse_input(read_input("in.test").unwrap());
-        let mut session = Session::new(inp, max_y, (500, 0));
-        let part1 = session.drop_sand_until_abyss();
+        let mut session = Session::new(inp.clone(), max_y, (500, 0));
+        let part1 = session.drop_sand_until_abyss(false);
+        let mut session2 = Session::new(inp, max_y, (500, 0));
+        let part2 = session2.drop_sand_until_abyss(true);
         println!("Test 1: {}", part1);
+        println!("Test 2: {}", part2 + 1);
     }
 
     #[test]
     fn actual() {
+        use std::time::Instant;
+        let now = Instant::now();
         let (inp, max_y) = parse_input(read_input("in.1").unwrap());
-        let mut session = Session::new(inp, max_y, (500, 0));
-        let part1 = session.drop_sand_until_abyss();
+        let mut session = Session::new(inp.clone(), max_y, (500, 0));
+        let part1 = session.drop_sand_until_abyss(false);
+        let mut session2 = Session::new(inp, max_y, (500, 0));
+        let part2 = session2.drop_sand_until_abyss(true);
+        let elapsed = now.elapsed();
         println!("Part 1: {}", part1);
+        println!("Part 2: {}", part2 + 1);
+        println!("Elapsed: {:?}", elapsed);
     }
 }
