@@ -15,6 +15,9 @@ type Graph = HashMap<usize, Vec<usize>>;
 /// (current_tunnel, cur_time, flow_rate achieved so far)
 type State = (usize, usize, usize);
 
+/// (current_tunnel, current_elephant_tunnel, cur_time, flow_rate achieved so far)
+type DoubleState = (usize, usize, usize, usize);
+
 #[derive(Debug, Clone)]
 struct Mapping {
     pub tunnel: String,
@@ -119,6 +122,76 @@ impl Session {
         max_val
     }
 
+    // Works but is too slow for part 2. This will exhaustively check all combinations
+    fn backtrack_doublestate(&self, state: DoubleState, visited: &mut HashSet<usize>, memo: &mut HashMap<DoubleState, usize>) -> usize {
+        //println!("State: {:?}, visited: {:?}", state, visited);
+        if visited.len() == self.mappings.len() {
+            return 0;
+        }
+        if memo.contains_key(&state) {
+            return *memo.get(&state).unwrap();
+        }
+        let (cn1, cn2, cur_time, cur_flow) = state;
+        if cur_time >= self.time {
+            if cur_time == self.time {
+                memo.insert(state, cur_flow);
+                return cur_flow;
+            }
+            memo.insert(state, 0);
+            return 0;
+        }
+        let mut max_val = cur_flow;
+        let (nn1_nodes, nn2_nodes) = (self.graph.get(&cn1).unwrap(), self.graph.get(&cn2).unwrap());
+        let nf1 = (self.time - (cur_time + 1)) * self.mappings[cn1].flow_rate;
+        let nf2 = (self.time - (cur_time + 1)) * self.mappings[cn2].flow_rate;
+        // Option-0: If both elephant and man in same room,
+        // room is visited and only one tunnel from here, then illegal state
+        if cn1 == cn2 && visited.contains(&cn1) && nn1_nodes.len() == 1 {
+            memo.insert(state, 0);
+            return 0;
+        }
+        // Option-1: elephant and man in different rooms, and both rooms unvisited
+        // So, both open
+        if !visited.contains(&cn1) && !visited.contains(&cn2) && cn1 != cn2 {
+            visited.insert(cn1);
+            visited.insert(cn2);
+            let new_flow_rate = cur_flow + nf1 + nf2;
+            max_val = max(max_val, self.backtrack_doublestate((cn1, cn2, cur_time + 1, new_flow_rate), visited, memo));
+            visited.remove(&cn1);
+            visited.remove(&cn2);
+        }
+        // Option-2 one of elephant and man open, and the other moves on
+        // This can happen if
+        //  1. Both in different rooms, and at least one of them is unvisited
+        //  2. Both in same room, room is unvisited and Room is not terminal -> take turns to visit
+        // Both cases should be covered by the following two if blocks.
+        if !visited.contains(&cn1) {
+            visited.insert(cn1);
+            for nn2 in nn2_nodes {
+                max_val = max(max_val, self.backtrack_doublestate((cn1, *nn2, cur_time + 1, cur_flow + nf1), visited, memo));
+            }
+            visited.remove(&cn1);
+        }
+        if !visited.contains(&cn2) {
+            visited.insert(cn2);
+            for nn1 in nn1_nodes {
+                max_val = max(max_val, self.backtrack_doublestate((*nn1, cn2, cur_time + 1, cur_flow + nf2), visited, memo));
+            }
+            visited.remove(&cn2);
+        }
+        // Option-3: No one opens
+        for nn1 in nn1_nodes.into_iter() {
+            for nn2 in nn2_nodes.into_iter() {
+                if cn1 == cn2 && nn1 == nn2 {
+                    continue;
+                }
+                max_val = max(max_val, self.backtrack_doublestate((*nn1, *nn2, cur_time + 1, cur_flow), visited, memo));
+            }
+        }
+        memo.insert(state, max_val);
+        max_val
+    }
+
     pub fn get_max_pressure(&self) -> usize {
         /// Map of (tun_id, cur_time, cur_flow) -> flow_rate
         let mut memo: HashMap<(usize, usize, usize), usize> = HashMap::new();
@@ -132,6 +205,20 @@ impl Session {
             }
         }
         self.backtrack((aa_node, 0, 0), &mut visited, &mut memo)
+    }
+
+    pub fn get_max_pressure_with_elephant(&self) -> usize {
+        let mut memo: HashMap<DoubleState, usize> = HashMap::new();
+        let mut visited: HashSet<usize> = HashSet::new();
+        let mut max_val = 0;
+        let mut aa_node = 0;
+        for (i, m) in self.mappings.iter().enumerate() {
+            if &m.tunnel == "AA" {
+                aa_node = i;
+                break;
+            }
+        }
+        self.backtrack_doublestate((aa_node, aa_node, 4, 0), &mut visited, &mut memo)
     }
 
     pub fn print_mappings(&self) {
@@ -150,18 +237,24 @@ mod tests {
     #[test]
     fn it_works() {
         let (graph, mappings) = parse_input(read_input("in.test").unwrap());
+        println!("mappings size: {}", mappings.len());
         let session = Session::new(graph, mappings, 30);
         let part1 = session.get_max_pressure();
+        let part2 = session.get_max_pressure_with_elephant();
         //session.print_mappings();
         println!("Test 1: {}", part1);
+        println!("Test 2: {}", part2);
     }
 
     #[test]
     fn actual() {
         let (graph, mappings) = parse_input(read_input("in.1").unwrap());
+        println!("mappings size: {}", mappings.len());
         let session = Session::new(graph, mappings, 30);
         let part1 = session.get_max_pressure();
+        let part2 = session.get_max_pressure_with_elephant();
         //session.print_mappings();
         println!("Part 1: {}", part1);
+        println!("Part 2: {}", part2);
     }
 }
