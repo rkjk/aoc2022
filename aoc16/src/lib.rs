@@ -76,7 +76,9 @@ fn parse_input(inp: Vec<String>) -> (Graph, Vec<Mapping>) {
 struct Session {
     graph: Graph,
     mappings: Vec<Mapping>,
-    time: usize
+    time: usize,
+    visited_nodes: HashSet<usize>,
+    cur_max: usize,
 }
 
 impl Session {
@@ -84,11 +86,13 @@ impl Session {
         Session {
             graph: g,
             mappings: m,
-            time: n
+            time: n,
+            visited_nodes: HashSet::new(),
+            cur_max: 0
         }
     }
 
-    fn backtrack(&self, state: State, visited: &mut HashSet<usize>, memo: &mut HashMap<State, usize>) -> usize {
+    fn backtrack(&mut self, state: State, visited: &mut HashSet<usize>, memo: &mut HashMap<State, usize>) -> usize {
         if visited.len() == self.mappings.len() {
             return 0;
         }
@@ -99,12 +103,16 @@ impl Session {
         if cur_time >= self.time {
             if cur_time == self.time {
                 memo.insert(state, cur_flow);
+                if cur_flow > self.cur_max {
+                    self.cur_max = cur_flow;
+                    self.visited_nodes = visited.clone();
+                }
                 return cur_flow;
             }
             return 0;
         }
         let mut max_val = cur_flow;
-        let next_nodes = self.graph.get(&cur_node).unwrap();
+        let next_nodes = self.graph.get(&cur_node).unwrap().clone();
         // Option-1 -> if cur_node is not visited, you can spend one sec and open it
         if !visited.contains(&cur_node) {
             visited.insert(cur_node);
@@ -115,9 +123,13 @@ impl Session {
         }
         // Option-2 -> use the second to go to the neighboring nodes
         for node in next_nodes {
-            max_val = max(max_val, self.backtrack((*node, cur_time + 1, cur_flow), visited, memo));
+            max_val = max(max_val, self.backtrack((node, cur_time + 1, cur_flow), visited, memo));
         }
         //visited.remove(&cur_node);
+        if max_val > self.cur_max {
+            self.cur_max = cur_flow;
+            self.visited_nodes = visited.clone();
+        }
         memo.insert(state, max_val);
         max_val
     }
@@ -192,11 +204,10 @@ impl Session {
         max_val
     }
 
-    pub fn get_max_pressure(&self) -> usize {
+    pub fn get_max_pressure(&mut self) -> usize {
         /// Map of (tun_id, cur_time, cur_flow) -> flow_rate
         let mut memo: HashMap<(usize, usize, usize), usize> = HashMap::new();
         let mut visited: HashSet<usize> = HashSet::new();
-        let mut max_val = 0;
         let mut aa_node = 0;
         for (i, m) in self.mappings.iter().enumerate() {
             if &m.tunnel == "AA" {
@@ -207,10 +218,19 @@ impl Session {
         self.backtrack((aa_node, 0, 0), &mut visited, &mut memo)
     }
 
-    pub fn get_max_pressure_with_elephant(&self) -> usize {
-        let mut memo: HashMap<DoubleState, usize> = HashMap::new();
+    /// Maha-Bongu
+    /// So, this works only for the actual input and not the example
+    /// Run the backtracking once with N=26 (set cur_time = 4).
+    /// Then, for al the visited valves, set flow_rate to 0, then rn backtracking again
+    /// Assumes the two processes are independent/linear. 
+    /// backtrack_doublestate is correct and will work, but will take hours
+    /// not to mention I don't think my machine is powerful enough or enough RAM.
+    /// Right way -> do a DFS for man -> compute max_val and visited. 
+    /// Followed immmeditately by DFS for elephant with a complementary set of nodes
+    /// max of sum of these two is your memo table storage.
+    pub fn get_max_pressure_with_elephant(&mut self) -> usize {
+        let mut memo: HashMap<State, usize> = HashMap::new();
         let mut visited: HashSet<usize> = HashSet::new();
-        let mut max_val = 0;
         let mut aa_node = 0;
         for (i, m) in self.mappings.iter().enumerate() {
             if &m.tunnel == "AA" {
@@ -218,7 +238,24 @@ impl Session {
                 break;
             }
         }
-        self.backtrack_doublestate((aa_node, aa_node, 4, 0), &mut visited, &mut memo)
+        let val1 = self.backtrack((aa_node, 4, 0), &mut visited, &mut memo);
+        println!("Val1: {}, visited: {:?}", val1, self.visited_nodes);
+        for i in self.visited_nodes.iter() {
+            self.mappings[*i].flow_rate = 0;
+        }
+        //visited = self.visited_nodes.clone();
+        visited = HashSet::new();
+        self.visited_nodes = HashSet::new();
+        self.cur_max = 0;
+        memo = HashMap::new();
+        let val2 = self.backtrack((aa_node, 4, 0), &mut visited, &mut memo);
+        //println!("Mappings: {:?}", self.mappings);
+        println!("Val2: {}, visited: {:?}", val2, self.visited_nodes);
+        val1 + val2
+    }
+
+    pub fn get_visited(&self) -> HashSet<usize> {
+        self.visited_nodes.clone()
     }
 
     pub fn print_mappings(&self) {
@@ -237,9 +274,9 @@ mod tests {
     #[test]
     fn it_works() {
         let (graph, mappings) = parse_input(read_input("in.test").unwrap());
-        println!("mappings size: {}", mappings.len());
-        let session = Session::new(graph, mappings, 30);
+        let mut session = Session::new(graph, mappings, 30);
         let part1 = session.get_max_pressure();
+        // Doesn't work, use the backtrack_doublestate here
         let part2 = session.get_max_pressure_with_elephant();
         //session.print_mappings();
         println!("Test 1: {}", part1);
@@ -249,8 +286,7 @@ mod tests {
     #[test]
     fn actual() {
         let (graph, mappings) = parse_input(read_input("in.1").unwrap());
-        println!("mappings size: {}", mappings.len());
-        let session = Session::new(graph, mappings, 30);
+        let mut session = Session::new(graph, mappings, 30);
         let part1 = session.get_max_pressure();
         let part2 = session.get_max_pressure_with_elephant();
         //session.print_mappings();
