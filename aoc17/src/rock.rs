@@ -1,10 +1,12 @@
+use std::fmt::Debug;
+
 /// Assume in the tunnel - left-bottom-corner is (0, 0)
 /// Going right -> increase Point.0
 /// Going up -> increase Point.1
 //// So, the room is the first quadrant
 pub type Point = (usize, usize);
 
-pub trait Rock {
+pub trait Rock: Debug {
     /// Any point that can be on collision course when moving left
     /// or something is moving right towards you
     fn get_left_endpoints(&self) -> Vec<Point>;

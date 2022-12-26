@@ -1,6 +1,7 @@
 use crate::rock::{Point, Rock};
 
 /// Row and Col here is the coordinate of the mid point
+#[derive(Debug)]
 pub struct Plus {
     mid: Point
 }

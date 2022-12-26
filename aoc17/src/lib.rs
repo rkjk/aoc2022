@@ -43,13 +43,17 @@ fn parse_input(inp: Vec<String>) -> Vec<Jet> {
 
 /// Get the next piece of rock to fall -> given the last row containing rock
 /// Note -> the row will be that of the highest point of any piece in the pile
-pub fn spawn(index: usize, cur_high_point: usize) -> Box<dyn Rock> {
+pub fn spawn(index: usize, cur_high_point: Option<usize>) -> Box<dyn Rock> {
+    let high_point = match cur_high_point {
+        None => 3,
+        Some(v) => v + 4
+    };
     match index % 5 {
-        0 => Box::new(Flat::new((cur_high_point + 3, 2))),
-        1 => Box::new(Plus::new((cur_high_point + 4, 3))),
-        2 => Box::new(InvL::new((cur_high_point + 3, 2))),
-        3 => Box::new(Straight::new((cur_high_point + 3, 2))),
-        4 => Box::new(Square::new((cur_high_point + 3, 2))),
+        0 => Box::new(Flat::new((2, high_point))),
+        1 => Box::new(Plus::new((3, high_point + 1))),
+        2 => Box::new(InvL::new((2, high_point))),
+        3 => Box::new(Straight::new((2, high_point))),
+        4 => Box::new(Square::new((2, high_point))),
         _ => panic!("Not possible"),
     }
 }
@@ -58,7 +62,7 @@ struct Session<I: Iterator<Item = Jet>> {
     jet_stream: I,
     index: usize,
     rocks: HashSet<Point>,
-    max_height: usize
+    max_height: Option<usize>
 }
 
 impl<I: Iterator<Item = Jet>> Session<I> {
@@ -66,7 +70,7 @@ impl<I: Iterator<Item = Jet>> Session<I> {
         Session {
             index: 0,
             rocks: HashSet::new(),
-            max_height: 0,
+            max_height: None,
             jet_stream: stream
         }
     }
@@ -89,7 +93,7 @@ impl<I: Iterator<Item = Jet>> Session<I> {
             &Jet::Right => {
                 let re = rock.get_right_endpoints();
                 for p in &re {
-                    if p.0 == 7 {
+                    if p.0 == 6 {
                         return false;
                     }
                 }
@@ -120,30 +124,50 @@ impl<I: Iterator<Item = Jet>> Session<I> {
 
     fn iteration(&mut self) {
         let mut rock = spawn(self.index, self.max_height);
+        //println!("Index: {}, Spawned rock: {:?}", self.index, rock);
         loop {
             let jet = self.jet_stream.next().unwrap();
             if self.corner_check(&jet, &rock) {
                 match jet {
-                    Jet::Left => rock.move_left(),
-                    Jet::Right => rock.move_right(),
+                    Jet::Left => {
+                        rock.move_left();
+                        //println!("Moved Left: {:?}", rock);
+                    },
+                    Jet::Right => {
+                        rock.move_right();
+                        //println!("Moved right: {:?}", rock);
+                    },
                 };
             }
             match self.bottom_check(&rock) {
-                true => rock.move_down(),
+                true => {
+                    rock.move_down();
+                    //println!("Moved down: {:?}", rock);
+                },
                 false => break,
             };
         }
-        self.max_height = max(self.max_height, rock.get_highest_point().1);
+        let v = rock.get_highest_point().1;
+        if self.max_height.is_none() {
+            self.max_height = Some(v);
+        } else {
+            let tmp = self.max_height.unwrap();
+            if v > tmp {
+                self.max_height = Some(v);
+            }
+        }
         for p in rock.get_all_points() {
             self.rocks.insert(p);
         }
+        //println!("Index: {} Final Rock Pos: {:?}", self.index, rock);
+        self.index += 1;
     }
 
     pub fn run_simulation(&mut self, upto: usize) -> usize {
-        while self.index <= upto {
+        while self.index < upto {
             self.iteration();
         }
-        self.max_height
+        self.max_height.unwrap() + 1
     }
 }
 
@@ -155,5 +179,15 @@ mod tests {
     fn it_works() {
         let inp = parse_input(read_input("in.test").unwrap());
         let mut session = Session::new(inp.into_iter().cycle());
+        let part1 = session.run_simulation(2022);
+        println!("Test 1: {}", part1);
+    }
+
+    #[test]
+    fn actual() {
+        let inp = parse_input(read_input("in.1").unwrap());
+        let mut session = Session::new(inp.into_iter().cycle());
+        let part1 = session.run_simulation(2022);
+        println!("Part 1: {}", part1);
     }
 }

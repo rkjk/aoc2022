@@ -1,6 +1,7 @@
 use crate::rock::{Point, Rock};
 
 /// Row and Col here is the coordinate of the left-most point
+#[derive(Debug)]
 pub struct Flat {
     left: Point
 }
