@@ -55,4 +55,8 @@ impl Rock for Square {
     fn move_down(&mut self) {
         self.bottom_left.1 -= 1;
     }
+
+    fn get_pivot(&self) -> Point {
+        self.bottom_left
+    }
 }

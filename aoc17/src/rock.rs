@@ -31,4 +31,6 @@ pub trait Rock: Debug {
     fn move_right(&mut self);
 
     fn move_down(&mut self);
+
+    fn get_pivot(&self) -> Point;
 }

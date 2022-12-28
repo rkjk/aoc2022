@@ -51,4 +51,8 @@ impl Rock for Straight {
     fn move_down(&mut self) {
         self.bottom.1 -= 1;
     }
+
+    fn get_pivot(&self) -> Point {
+        self.bottom
+    }
 }

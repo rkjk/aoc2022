@@ -57,4 +57,8 @@ impl Rock for InvL {
     fn move_down(&mut self) {
         self.left.1 -= 1;
     }
+
+    fn get_pivot(&self) -> Point {
+        self.left
+    }
 }
