@@ -2,7 +2,6 @@ use std::io::{BufRead, BufReader, ErrorKind};
 use std::io::Error;
 use std::fs::File;
 use std::collections::{HashMap, VecDeque};
-use std::cmp::{min, max};
 
 fn read_input(filename: &str) -> Result<Vec<String>, Error> {
     let f = File::open(filename).unwrap();
@@ -10,9 +9,11 @@ fn read_input(filename: &str) -> Result<Vec<String>, Error> {
     f.lines().map(|l| l.and_then(|v| v.parse().map_err(|e| Error::new(ErrorKind::InvalidData, e)))).collect()
 }
 
+type ValueType = u64;
+
 #[derive(Debug, Clone)]
 enum Op {
-    Num(i32),
+    Num(ValueType),
     Node(String)
 }
 
@@ -30,7 +31,7 @@ enum Job {
 #[derive(Debug)]
 struct WrapperJob {
     job: Job,
-    value: Option<i32>
+    value: Option<ValueType>
 }
 
 impl WrapperJob {
@@ -43,7 +44,7 @@ impl WrapperJob {
         wj
     }
 
-    pub fn get_value(&self) -> Option<i32> {
+    pub fn get_value(&self) -> Option<ValueType> {
         self.value
     }
 
@@ -52,6 +53,9 @@ impl WrapperJob {
     }
 
     pub fn evaluate(&mut self) {
+        if self.get_value().is_some() {
+            return;
+        }
         match self.get_job() {
             Job::Val(op) => {
                 if let Op::Num(v) = op {
@@ -81,8 +85,40 @@ impl WrapperJob {
         };
     }
 
-    pub fn replace(&mut self, val: i32, pos: usize) {
+    fn get_position(&self, nn: &str) -> usize {
+        match self.get_job() {
+            Job::Add((o1, o2)) |
+            Job::Sub((o1, o2)) |
+            Job::Mul((o1, o2)) |
+            Job::Div((o1, o2)) => {
+                let s1 = match o1 {
+                    Op::Node(ref v1) => Some(v1.clone()),
+                    _ => None
+                };
+                let s2 = match o2 {
+                    Op::Node(ref v2) => Some(v2.clone()),
+                    _ => None,
+                };
+                if let Some(s) = s1 {
+                    if s == nn {
+                        return 0;
+                    }
+                }
+                if let Some(s) = s2 {
+                    if s == nn {
+                        return 1;
+                    }
+                }
+                panic!("Cannot replace with node: {}, o1: {:?}, o2: {:?}", nn, o1, o2);
+            },
+            _ => panic!("Cannot replace with node: {}, job: {:?}", nn, self.job),
+        }
+    }
+
+    pub fn replace(&mut self, node: &str, val: ValueType) {
         let num = Op::Num(val);
+        let pos = self.get_position(node);
+        //println!("position: {}", pos);
         match self.get_job() {
             Job::Add((o1, o2)) => {
                 match pos == 0 {
@@ -124,7 +160,7 @@ fn parse_input(inp: Vec<String>) -> (Connections, Graph) {
         let l_r: Vec<&str> = line.split(":").collect();
         let parent = l_r[0].to_string();
         let r = l_r[1].trim();
-        if let Ok(v) = r.parse::<i32>() {
+        if let Ok(v) = r.parse::<ValueType>() {
             graph.insert(parent, WrapperJob::new(Job::Val(Op::Num(v))));
             continue;
         }
@@ -157,25 +193,48 @@ impl Session {
     }
 
     fn get_starting_points(&self) -> VecDeque<String> {
-        self.graph.iter().filter(|(k, v)| match v.get_job() {
-            Job::Val(v) => true,
-            _ => false
-        }).map(|(k, v)| k.to_owned()).collect()
+        self.graph.iter().filter(|(k, v)| v.get_value().is_some()).map(|(k, v)| k.to_owned()).collect()
     }
 
-    /// If a node has Job::Val or any other job with both Num, then we can consider that visited
+    /// If a node has an evaluated expression, then we can consider that visited
     /// In first iteration, only Val's are visited. Using these, we visit connected nodes and replace Nodes with Nums.
     /// When doing the replacement, if we detect both to be Nums, we can add to visited and use these parents
     /// as our next starting points. Continue iterations until we exhaust everything.
     /// Finally, we can return the value of root alone.
     fn fill_graph(&mut self) {
         let mut q = self.get_starting_points();
+        //println!("Starting with: {:?}", q);
         while !q.is_empty() {
             let cur_node = q.pop_front().unwrap();
-            let v = self.graph.get(&cur_node);
-            //match v {
-            //    &Job::Val(v) => 
-            //}
+            let v = self.graph.get(&cur_node).unwrap().get_value().unwrap();
+            //println!("Current node: {}, val: {}", cur_node, v);
+            for con in self.connections.get(&cur_node) {
+                for c in con {
+                    let p_wrapperjob = self.graph.get_mut(c).unwrap();
+                    //println!("Current job: {:?}", p_wrapperjob);
+                    if p_wrapperjob.get_value().is_some() {
+                        continue;
+                    }
+                    p_wrapperjob.replace(&cur_node, v);
+                    //println!("Replaced job: {:?}", p_wrapperjob);
+                    p_wrapperjob.evaluate();
+                    if p_wrapperjob.get_value().is_some() {
+                        //println!("Evaluated node {}, value: {}", c, p_wrapperjob.get_value().unwrap());
+                        q.push_back(c.to_owned());
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn get_root(&mut self) -> ValueType {
+        self.fill_graph();
+        self.graph.get("root").unwrap().get_value().unwrap()
+    }
+
+    pub fn print_all(&self) {
+        for (k, v) in self.graph.iter() {
+            println!("Key: {}, Val: {}", k, v.get_value().unwrap());
         }
     }
 }
@@ -187,7 +246,18 @@ mod tests {
     #[test]
     fn it_works() {
         let (connections, graph) = parse_input(read_input("in.test").unwrap());
-        println!("connections: {:?}", connections);
-        println!("graph: {:?}", graph);
+        let mut session = Session::new(connections, graph);
+        let part1 = session.get_root();
+        //session.print_all();
+        println!("Test 1: {}", part1);
+    }
+
+    #[test]
+    fn actual() {
+        let (connections, graph) = parse_input(read_input("in.1").unwrap());
+        let mut session = Session::new(connections, graph);
+        let part1 = session.get_root();
+        //session.print_all();
+        println!("Part 1: {}", part1);
     }
 }
