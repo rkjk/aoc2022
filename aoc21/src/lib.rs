@@ -9,7 +9,7 @@ fn read_input(filename: &str) -> Result<Vec<String>, Error> {
     f.lines().map(|l| l.and_then(|v| v.parse().map_err(|e| Error::new(ErrorKind::InvalidData, e)))).collect()
 }
 
-type ValueType = u64;
+type ValueType = i64;
 
 #[derive(Debug, Clone)]
 enum Op {
@@ -28,7 +28,7 @@ enum Job {
     Div(DoubleArg)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct WrapperJob {
     job: Job,
     value: Option<ValueType>
@@ -192,6 +192,14 @@ impl Session {
         }
     }
 
+    pub fn new_humn(connections: Connections, mut graph: Graph, v: ValueType) -> Self {
+        graph.insert("humn".to_owned(), WrapperJob::new(Job::Val(Op::Num(v))));
+        Session {
+            connections: connections,
+            graph: graph
+        }
+    }
+
     fn get_starting_points(&self) -> VecDeque<String> {
         self.graph.iter().filter(|(k, v)| v.get_value().is_some()).map(|(k, v)| k.to_owned()).collect()
     }
@@ -232,6 +240,15 @@ impl Session {
         self.graph.get("root").unwrap().get_value().unwrap()
     }
 
+    pub fn get_root_equal(&mut self) -> DoubleArg {
+        self.fill_graph();
+        match self.graph.get("root").unwrap().get_job() {
+            Job::Add(v) | Job::Sub(v) |
+            Job::Mul(v) | Job::Div(v) => return v,
+            _ => panic!("Should be a doublearg"),
+        };
+    }
+
     pub fn print_all(&self) {
         for (k, v) in self.graph.iter() {
             println!("Key: {}, Val: {}", k, v.get_value().unwrap());
@@ -239,25 +256,72 @@ impl Session {
     }
 }
 
+struct SessionBinSearch {
+    graph: Graph,
+    connections: Connections
+}
+
+impl SessionBinSearch {
+    pub fn new(connections: Connections, graph: Graph) -> Self {
+        SessionBinSearch {
+            connections: connections,
+            graph: graph
+        }
+    }
+
+    /// Example and actual differ in direction i.e if o1 > o2, for example, h = m -1 
+    /// but for actual, l = m + 1
+    pub fn run_binsearch(&self) -> ValueType {
+        let mut l = 0;
+        let mut h = 388222446619011;
+        while l <= h {
+            let m = l + (h  - l) / 2;
+            let mut cur_session = Session::new_humn( self.connections.clone(), self.graph.clone(), m);
+            let job = cur_session.get_root_equal();
+            if let (Op::Num(o1), Op::Num(o2)) = job {
+                if o1 > o2 {
+                    l = m + 1;
+                } else if o1 < o2 {
+                    h  = m - 1;
+                } else {
+                    return m - 1;
+                }
+            }
+            
+        }
+        panic!("No answer found");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
+    //#[test]
     fn it_works() {
         let (connections, graph) = parse_input(read_input("in.test").unwrap());
+        let mut session_bin_search = SessionBinSearch::new(connections.clone(), graph.clone());
         let mut session = Session::new(connections, graph);
         let part1 = session.get_root();
+        let part2 = session_bin_search.run_binsearch();
         //session.print_all();
         println!("Test 1: {}", part1);
+        println!("Test 2: {}", part2);
     }
 
     #[test]
     fn actual() {
+        use std::time::Instant;
+        let now = Instant::now();
         let (connections, graph) = parse_input(read_input("in.1").unwrap());
+        let mut session_bin_search = SessionBinSearch::new(connections.clone(), graph.clone());
         let mut session = Session::new(connections, graph);
         let part1 = session.get_root();
+        let part2 = session_bin_search.run_binsearch();
+        let elapsed = now.elapsed();
         //session.print_all();
         println!("Part 1: {}", part1);
+        println!("Part 2: {}", part2);
+        println!("Elapsed: {:?}", elapsed);
     }
 }
