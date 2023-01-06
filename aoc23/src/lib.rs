@@ -61,7 +61,7 @@ impl Dir {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Elves {
     map: HashSet<Pos>
 }
@@ -255,6 +255,17 @@ impl Session {
         }
     }
 
+    pub fn run_till_end(&mut self, start_round: usize) -> usize {
+        let mut count = start_round;
+        loop {
+            match self.run_round() {
+                State::Continue => count = count + 1,
+                State::End => break,
+            };
+        }
+        count
+    }
+
     pub fn count_empty(&self) -> usize {
         self.cur_pos.get_empty()
     }
@@ -267,18 +278,26 @@ mod tests {
     #[test]
     fn it_works() {
         let input = parse_input(read_input("in.test").unwrap());
-        let mut session = Session::new(input);
+        let mut session = Session::new(input.clone());
         session.run_rounds(10);
         let part1 = session.count_empty();
+        let part2 = session.run_till_end(10);
         println!("Test 1: {}", part1);
+        println!("Test 2: {}", part2 + 1);
     }
 
     #[test]
     fn actual() {
+        use std::time::Instant;
+        let now = Instant::now();
         let input = parse_input(read_input("in.1").unwrap());
         let mut session = Session::new(input);
         session.run_rounds(10);
         let part1 = session.count_empty();
+        let part2 = session.run_till_end(10);
+        let elapsed = now.elapsed();
         println!("Part 1: {}", part1);
+        println!("Part 2: {}", part2 + 1);
+        println!("Elapsed: {:?}", elapsed);
     }
 }
