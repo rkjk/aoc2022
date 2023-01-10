@@ -121,7 +121,9 @@ impl Session {
         if iteration < self.blizzards.len() {
             return;
         }
-        self.update_all_locs();
+        for i in self.blizzards.len()..iteration+1 {
+            self.update_all_locs();
+        }
     }
 
     fn check_validity(&self, cur_pos: Coord, cur_it: usize) -> bool {
@@ -146,12 +148,12 @@ impl Session {
         vec
     }
 
-    pub fn find_shortest_path(&mut self, start: Coord, end: Coord) -> usize {
+    pub fn find_shortest_path(&mut self, start: Coord, end: Coord, start_iter: usize) -> usize {
         //println!("start: {:?} end: {:?}", start, end);
-        let IT_MAX = 1000;
+        let IT_MAX = 750;
         let mut shortest_time = usize::MAX;
         let mut visited = HashSet::new();
-        let mut q = VecDeque::from(vec![(start, 0)]); // Cur-coordinate, cur-iteration
+        let mut q = VecDeque::from(vec![(start, start_iter)]); // Cur-coordinate, cur-iteration
         while !q.is_empty() {
             let (cur_loc, cur_it) = q.pop_front().unwrap();
             if cur_it > IT_MAX {
@@ -190,6 +192,12 @@ impl Session {
         }
         shortest_time
     }
+
+    pub fn orchestrate(&mut self, start: Coord, end: Coord) -> usize {
+        let val1 = self.find_shortest_path(start, end, 0);
+        let val2 = self.find_shortest_path(end, start, val1);
+        self.find_shortest_path(start, end, val2)
+    }
 }
 
 #[cfg(test)]
@@ -201,16 +209,24 @@ mod tests {
         let (blizzards, nrows, ncols) = parse_input(read_input("in.test").unwrap());
         //println!("blizzards: {:?}", blizzards);
         let mut session = Session::new(blizzards, nrows, ncols);
-        let part1 = session.find_shortest_path((0, 1), (nrows - 1, ncols - 2));
+        let part1 = session.find_shortest_path((0, 1), (nrows - 1, ncols - 2), 0);
+        let part2 = session.orchestrate((0, 1), (nrows - 1, ncols - 2));
         println!("Test 1: {}", part1);
+        println!("Test 2: {}", part2);
     }
 
     #[test]
     fn actual() {
+        use std::time::Instant;
+        let now = Instant::now();
         let (blizzards, nrows, ncols) = parse_input(read_input("in.1").unwrap());
         //println!("blizzards: {:?}", blizzards);
         let mut session = Session::new(blizzards, nrows, ncols);
-        let part1 = session.find_shortest_path((0, 1), (nrows - 1, ncols - 2));
+        let part1 = session.find_shortest_path((0, 1), (nrows - 1, ncols - 2), 0);
+        let part2 = session.orchestrate((0, 1), (nrows - 1, ncols - 2));
+        let elapsed = now.elapsed();
         println!("Part 1: {}", part1);
+        println!("Part 2: {}", part2);
+        println!("Elapsed: {:?}", elapsed);
     }
 }
