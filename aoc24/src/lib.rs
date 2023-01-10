@@ -151,7 +151,6 @@ impl Session {
     pub fn find_shortest_path(&mut self, start: Coord, end: Coord, start_iter: usize) -> usize {
         //println!("start: {:?} end: {:?}", start, end);
         let IT_MAX = 750;
-        let mut shortest_time = usize::MAX;
         let mut visited = HashSet::new();
         let mut q = VecDeque::from(vec![(start, start_iter)]); // Cur-coordinate, cur-iteration
         while !q.is_empty() {
@@ -159,18 +158,12 @@ impl Session {
             if cur_it > IT_MAX {
                 continue;
             }
-            // If you have reached the end
-            //if cur_loc == end {
-            //    shortest_time = min(shortest_time, cur_it);
-            //    continue;
-            //}
             if visited.contains(&(cur_loc, cur_it)) {
                 continue;
             }
             // Generate blizzard locations for this iteration
             self.generate_new_blizzards(cur_it);
             // Add to visited
-            //println!("cur_loc: {:?} cur_it: {}", cur_loc, cur_it);
             visited.insert((cur_loc, cur_it));
             // Check if this is a valid position without any blizzards
             if !self.check_validity(cur_loc, cur_it) {
@@ -179,8 +172,9 @@ impl Session {
             }
             for (r, c) in self.get_new_positions(cur_loc) {
                 if (r, c) == end {
-                    shortest_time = min(shortest_time, cur_it + 1);
-                    continue;
+                    // Since we need the shortest time to get an answer,
+                    // the firts one is the answer
+                    return cur_it + 1;
                 }
                 if r == 0 || r == self.nrows - 1 || c == 0 || c == self.ncols - 1 {
                     continue;
@@ -190,7 +184,7 @@ impl Session {
             // Wait
             q.push_back((cur_loc, cur_it + 1));
         }
-        shortest_time
+        usize::MAX
     }
 
     pub fn orchestrate(&mut self, start: Coord, end: Coord) -> usize {
